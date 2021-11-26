@@ -4,8 +4,8 @@
       <img
         ref="liveImg"
         crossorigin="anonymous"
-        src="your-live-camera"
-        alt=""
+        :src="liveUrl"
+        alt="Live映像"
       />
       <canvas ref="canvas" width="640" height="640"></canvas>
     </div>
@@ -21,17 +21,18 @@ import Component from "vue-class-component";
   name: "about",
 })
 export default class extends Vue {
+  liveUrl = process.env.VUE_APP_LIVE_URL as string;
   model: cocoSsd.ObjectDetection = {} as cocoSsd.ObjectDetection;
   peopleNumber = 0;
   "$refs": {
     liveImg: HTMLImageElement;
     canvas: HTMLCanvasElement;
   };
-  async detectObjects() {
+  async detectObjects(): Promise<void> {
     const predirections = await this.model.detect(this.$refs.liveImg);
     this.renderPredictions(predirections);
   }
-  renderPredictions(predictions: cocoSsd.DetectedObject[]) {
+  renderPredictions(predictions: cocoSsd.DetectedObject[]): void {
     // get the context of canvas
     const ctx = this.$refs.canvas.getContext("2d") as CanvasRenderingContext2D;
     // clear the canvas
@@ -58,14 +59,19 @@ export default class extends Vue {
     });
   }
   mounted() {
-    cocoSsd
-      .load({
+    Promise.all([
+      cocoSsd.load({
         base: "lite_mobilenet_v2",
-      })
-      .then(async (detect) => {
-        console.log("detect");
+      }),
+      fetch(this.liveUrl),
+    ])
+      .then(async ([detect, live]) => {
+        console.log("detect", live);
         this.model = detect;
         setInterval(this.detectObjects, 500);
+      })
+      .catch((e) => {
+        console.error(e);
       });
   }
 }
